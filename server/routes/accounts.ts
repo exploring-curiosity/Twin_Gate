@@ -3,7 +3,7 @@ import { v4 as uuid } from "uuid";
 import { google } from "googleapis";
 import {
   createAccount, getAccounts, getAccount, updateAccount, deleteAccount,
-  getAgentProfile, upsertAgentProfile, audit,
+  getAgentProfile, upsertAgentProfile, audit, getDb,
 } from "../db.js";
 import {
   getGoogleAuthUrlForAccount,
@@ -33,6 +33,30 @@ router.patch("/:id", (req, res) => {
   const { name, email } = req.body as { name?: string; email?: string };
   if (!name?.trim()) { res.status(400).json({ error: "name required" }); return; }
   updateAccount(req.params.id, name.trim(), email?.trim());
+  res.json({ success: true });
+});
+
+// Set profile manually (no Google needed)
+router.put("/:id/profile", (req, res) => {
+  const accountId = req.params.id;
+  const account = getAccount(accountId);
+  if (!account) { res.status(404).json({ error: "Account not found" }); return; }
+  const { display_name, bio, skills, interests, communication_style } = req.body as {
+    display_name?: string; bio?: string; skills?: string[]; interests?: string[];
+    communication_style?: string;
+  };
+  upsertAgentProfile({
+    user_id: accountId,
+    display_name: display_name || account.name,
+    skills: skills || [],
+    interests: interests || [],
+    communication_style,
+  });
+  // Store bio on the account
+  if (bio !== undefined) {
+    getDb().prepare("UPDATE accounts SET bio = ? WHERE id = ?").run(bio, accountId);
+  }
+  audit("account.profile_updated", accountId, { manual: true });
   res.json({ success: true });
 });
 

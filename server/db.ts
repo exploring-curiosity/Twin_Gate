@@ -136,8 +136,19 @@ function initTables(db: Database.Database) {
       name TEXT NOT NULL,
       email TEXT,
       avatar_color TEXT DEFAULT '#6366f1',
+      bio TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS direct_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      from_id TEXT NOT NULL,
+      to_id TEXT NOT NULL,
+      content TEXT NOT NULL,
+      is_twin_response INTEGER DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_dm_participants ON direct_messages(from_id, to_id);
   `);
 }
 
@@ -457,6 +468,44 @@ export function updateAccount(id: string, name: string, email?: string) {
 
 export function deleteAccount(id: string) {
   getDb().prepare("DELETE FROM accounts WHERE id = ?").run(id);
+}
+
+// --- Direct Messages ---
+
+export interface DirectMessage {
+  id: number;
+  from_id: string;
+  to_id: string;
+  content: string;
+  is_twin_response: number;
+  created_at: string;
+}
+
+export function insertDirectMessage(msg: { from_id: string; to_id: string; content: string; is_twin_response: boolean }) {
+  return getDb()
+    .prepare("INSERT INTO direct_messages (from_id, to_id, content, is_twin_response) VALUES (?, ?, ?, ?)")
+    .run(msg.from_id, msg.to_id, msg.content, msg.is_twin_response ? 1 : 0).lastInsertRowid;
+}
+
+export function getDirectMessages(accountA: string, accountB: string, limit = 100): DirectMessage[] {
+  return getDb()
+    .prepare(`SELECT * FROM direct_messages
+              WHERE (from_id = ? AND to_id = ?) OR (from_id = ? AND to_id = ?)
+              ORDER BY created_at ASC LIMIT ?`)
+    .all(accountA, accountB, accountB, accountA, limit) as DirectMessage[];
+}
+
+export function getMessageThreads(accountId: string): { other_id: string; last_message: string; last_at: string }[] {
+  return getDb()
+    .prepare(`SELECT
+        CASE WHEN from_id = ? THEN to_id ELSE from_id END as other_id,
+        content as last_message,
+        MAX(created_at) as last_at
+      FROM direct_messages
+      WHERE from_id = ? OR to_id = ?
+      GROUP BY other_id
+      ORDER BY last_at DESC`)
+    .all(accountId, accountId, accountId) as { other_id: string; last_message: string; last_at: string }[];
 }
 
 // --- Cloud Config ---

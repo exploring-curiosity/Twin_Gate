@@ -20,6 +20,7 @@ import securityRouter from "./routes/security.js";
 import { createCloudRouter } from "./routes/cloud.js";
 import { createSocialRouter } from "./routes/social.js";
 import accountsRouter from "./routes/accounts.js";
+import messagesRouter from "./routes/messages.js";
 
 const app = express();
 const PORT = parseInt(process.env.ZEROCLAW_PORT || "3001");
@@ -77,6 +78,7 @@ app.get("/oauth/google/callback", async (req, res) => {
 });
 app.use("/api/twin", twinRouter);
 app.use("/api/accounts", accountsRouter);
+app.use("/api/messages", messagesRouter);
 app.use("/api/security", securityRouter);
 app.use("/api/cloud", createCloudRouter(cloudClient));
 app.use("/api/social", createSocialRouter(chatEngine));

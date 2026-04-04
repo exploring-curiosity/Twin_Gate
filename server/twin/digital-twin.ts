@@ -204,6 +204,55 @@ Return ONLY valid JSON:
   }
 }
 
+export async function generateContextualReply(
+  recipientProfile: { display_name?: string; skills?: string[]; interests?: string[]; communication_style?: string; bio?: string },
+  message: string,
+  fromName: string,
+  history: Array<{ sender_name: string; content: string; is_twin: boolean }>
+): Promise<string> {
+  const client = getClient();
+  if (!client) return "Hey! (twin not configured — set ANTHROPIC_API_KEY)";
+
+  const model = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-20250514";
+  const name = recipientProfile.display_name || "Unknown";
+
+  const historyText = history.slice(-12)
+    .map(m => `${m.sender_name}: ${m.content}`)
+    .join("\n");
+
+  const system = `You are the Digital Twin of ${name}. You ARE ${name} in this conversation.
+
+About ${name}:
+${recipientProfile.bio ? `Bio: ${recipientProfile.bio}` : ""}
+Skills: ${(recipientProfile.skills || []).join(", ") || "not specified"}
+Interests: ${(recipientProfile.interests || []).join(", ") || "not specified"}
+Communication style: ${recipientProfile.communication_style || "casual and friendly"}
+
+You're chatting with ${fromName} in a direct message. Respond naturally as ${name} would.
+- Be genuine — if a topic aligns with your interests, show enthusiasm
+- If asked about availability or plans, respond based on your character (make it up realistically)
+- Keep it conversational, 1-3 sentences max
+- Do NOT say you're an AI or a twin — just BE ${name}`;
+
+  try {
+    const response = await client.messages.create({
+      model,
+      max_tokens: 250,
+      temperature: 0.8,
+      system,
+      messages: [{
+        role: "user",
+        content: `${historyText ? `Previous messages:\n${historyText}\n\n` : ""}${fromName}: "${message}"\n\nRespond as ${name}:`,
+      }],
+    });
+    return response.content
+      .filter((c): c is Anthropic.TextBlock => c.type === "text")
+      .map(c => c.text).join("").trim() || "...";
+  } catch (err) {
+    return `[Twin error: ${(err as Error).message}]`;
+  }
+}
+
 export async function generateTwinReply(
   profile: { display_name?: string; skills?: string[]; interests?: string[]; communication_style?: string },
   history: Array<{ speaker: string; content: string }>,
