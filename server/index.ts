@@ -7,7 +7,7 @@ import { createEventPipeline } from "./cloud/event-pipeline.js";
 import { createDiscordBot } from "./integrations/discord.js";
 import { startGmailPolling } from "./integrations/gmail.js";
 import { createGroupChatEngine } from "./social/group-chat.js";
-import { handleGoogleCallback } from "./auth/google-oauth.js";
+import { handleGoogleCallback, handleGoogleCallbackForAccount } from "./auth/google-oauth.js";
 
 // Route imports
 import permissionsRouter from "./routes/permissions.js";
@@ -19,6 +19,7 @@ import twinRouter from "./routes/twin.js";
 import securityRouter from "./routes/security.js";
 import { createCloudRouter } from "./routes/cloud.js";
 import { createSocialRouter } from "./routes/social.js";
+import accountsRouter from "./routes/accounts.js";
 
 const app = express();
 const PORT = parseInt(process.env.ZEROCLAW_PORT || "3001");
@@ -56,18 +57,26 @@ app.use("/api/audit", auditRouter);
 app.use("/api/discord", discordRouter);
 app.use("/api/auth", authRouter);
 
-// Direct handler for Google Cloud Console redirect URI
+// Direct handler for Google Cloud Console redirect URI (supports per-account via state param)
 app.get("/oauth/google/callback", async (req, res) => {
   const code = req.query.code as string;
+  const state = req.query.state as string | undefined; // account id if per-account flow
   if (!code) { res.status(400).send("Missing code"); return; }
   try {
-    await handleGoogleCallback(code);
-    res.send(`<html><body style="background:#1a1a2e;color:#fff;font-family:sans-serif;display:flex;justify-content:center;align-items:center;height:100vh"><div style="text-align:center"><h1>Connected!</h1><p>Gmail + Calendar connected to ZeroClaw.</p><p>You can close this window.</p></div></body></html>`);
+    if (state && state.length > 10) {
+      // Per-account flow
+      await handleGoogleCallbackForAccount(code, state);
+    } else {
+      // Default (legacy) flow
+      await handleGoogleCallback(code);
+    }
+    res.send(`<html><body style="background:#1a1a2e;color:#fff;font-family:sans-serif;display:flex;justify-content:center;align-items:center;height:100vh"><div style="text-align:center"><h1 style="color:#22c55e">Connected!</h1><p>Google account linked to ZeroClaw.</p><p style="color:#6b7280">You can close this tab.</p></div></body></html>`);
   } catch (err) {
     res.status(500).send("OAuth failed: " + (err as Error).message);
   }
 });
 app.use("/api/twin", twinRouter);
+app.use("/api/accounts", accountsRouter);
 app.use("/api/security", securityRouter);
 app.use("/api/cloud", createCloudRouter(cloudClient));
 app.use("/api/social", createSocialRouter(chatEngine));

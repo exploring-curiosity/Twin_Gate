@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
-import { AppWindow, Shield, MessageSquare, Brain, Users, Cloud } from 'lucide-react';
+import { AppWindow, Shield, MessageSquare, Brain, Users, Cloud, UserCircle2 } from 'lucide-react';
 import { IntegrationPanel } from './components/IntegrationPanel';
 import { GroupChat } from './components/GroupChat';
 import { TwinDashboard } from './components/TwinDashboard';
 import { SecurityDashboard } from './components/SecurityDashboard';
 import { CloudStatus } from './components/CloudStatus';
+import { AccountManager } from './components/AccountManager';
+import { TwinTwinChat } from './components/TwinTwinChat';
 import { useIntegrationStore } from './store/integrations';
 import type { IntegrationSource } from './types/schema';
 
-type Section = 'integrations' | 'twin' | 'social' | 'security' | 'cloud';
+type Section = 'integrations' | 'twin' | 'twin-chat' | 'social' | 'security' | 'cloud' | 'accounts';
 
 interface IntegrationConnected {
   discord: boolean;
@@ -56,9 +58,16 @@ function App() {
     { id: 'google_calendar', label: 'Calendar', color: 'bg-blue-500' },
   ];
 
-  const sections: { id: Section; label: string; icon: typeof Shield }[] = [
+  const sections: { id: Section; label: string; icon: typeof Shield; sub?: { id: Section; label: string }[] }[] = [
+    { id: 'accounts', label: 'Accounts', icon: UserCircle2 },
     { id: 'integrations', label: 'Integrations', icon: MessageSquare },
-    { id: 'twin', label: 'Digital Twin', icon: Brain },
+    {
+      id: 'twin', label: 'Digital Twin', icon: Brain,
+      sub: [
+        { id: 'twin', label: 'My Twin' },
+        { id: 'twin-chat', label: 'Twin Chat' },
+      ],
+    },
     { id: 'social', label: 'Agent Chat', icon: Users },
     { id: 'security', label: 'Validia', icon: Shield },
     { id: 'cloud', label: 'Cloud', icon: Cloud },
@@ -77,41 +86,63 @@ function App() {
         </div>
 
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          {sections.map((s) => (
-            <div key={s.id}>
-              <button
-                onClick={() => setActiveSection(s.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  activeSection === s.id
-                    ? 'bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-400'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50'
-                }`}
-              >
-                <s.icon size={18} />
-                {s.label}
-              </button>
+          {sections.map((s) => {
+            const isActive = activeSection === s.id || s.sub?.some(sub => sub.id === activeSection);
+            return (
+              <div key={s.id}>
+                <button
+                  onClick={() => setActiveSection(s.sub ? s.sub[0].id : s.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-400'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50'
+                  }`}
+                >
+                  <s.icon size={18} />
+                  {s.label}
+                </button>
 
-              {/* Integration sub-tabs */}
-              {s.id === 'integrations' && activeSection === 'integrations' && (
-                <div className="ml-6 mt-1 space-y-0.5">
-                  {integrationTabs.map((tab) => (
-                    <button
-                      key={tab.id}
-                      onClick={() => { setActiveSection('integrations'); setActiveTab(tab.id); }}
-                      className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                        activeTab === tab.id
-                          ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
-                          : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                      }`}
-                    >
-                      <div className={`w-1.5 h-1.5 rounded-full ${connected[tab.id as keyof IntegrationConnected] ? 'bg-green-500' : 'bg-gray-400 dark:bg-gray-600'}`} />
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
+                {/* Sub-tabs for Digital Twin */}
+                {s.sub && isActive && (
+                  <div className="ml-6 mt-1 space-y-0.5">
+                    {s.sub.map((sub) => (
+                      <button
+                        key={sub.id}
+                        onClick={() => setActiveSection(sub.id)}
+                        className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                          activeSection === sub.id
+                            ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
+                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                        }`}
+                      >
+                        {sub.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Integration sub-tabs */}
+                {s.id === 'integrations' && activeSection === 'integrations' && (
+                  <div className="ml-6 mt-1 space-y-0.5">
+                    {integrationTabs.map((tab) => (
+                      <button
+                        key={tab.id}
+                        onClick={() => { setActiveSection('integrations'); setActiveTab(tab.id); }}
+                        className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                          activeTab === tab.id
+                            ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
+                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                        }`}
+                      >
+                        <div className={`w-1.5 h-1.5 rounded-full ${connected[tab.id as keyof IntegrationConnected] ? 'bg-green-500' : 'bg-gray-400 dark:bg-gray-600'}`} />
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </nav>
 
         {/* Connection Status */}
@@ -124,11 +155,13 @@ function App() {
       <main className="flex-1 p-6 lg:p-8 flex flex-col h-screen overflow-hidden bg-gray-50 dark:bg-gray-900">
         <header className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white m-0">
-            {sections.find((s) => s.id === activeSection)?.label}
+            {activeSection === 'twin-chat' ? 'Twin Chat' : sections.find((s) => s.id === activeSection || s.sub?.some(sub => sub.id === activeSection))?.label}
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            {activeSection === 'accounts' && 'Manage multiple Google accounts and build a digital twin for each.'}
             {activeSection === 'integrations' && 'Configure what OpenClaw can see and do.'}
             {activeSection === 'twin' && 'Your Digital Twin learns from your conversations.'}
+            {activeSection === 'twin-chat' && 'Watch two digital twins have a natural conversation with each other.'}
             {activeSection === 'social' && 'Agents interact on your behalf in group chats.'}
             {activeSection === 'security' && 'Validia protects against distillation attacks and PII leaks.'}
             {activeSection === 'cloud' && 'Connection to your Cloud OpenClaw instance.'}
@@ -136,8 +169,10 @@ function App() {
         </header>
 
         <div className="flex-1 min-h-0 overflow-y-auto">
+          {activeSection === 'accounts' && <AccountManager onSelectForChat={() => setActiveSection('twin-chat')} />}
           {activeSection === 'integrations' && <IntegrationPanel source={activeTab} />}
           {activeSection === 'twin' && <TwinDashboard />}
+          {activeSection === 'twin-chat' && <TwinTwinChat />}
           {activeSection === 'social' && <GroupChat />}
           {activeSection === 'security' && <SecurityDashboard />}
           {activeSection === 'cloud' && <CloudStatus />}
