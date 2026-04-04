@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:18789-01knchr9ws6xm5xke8aya525gh.cloudspaces.litng.ai)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run:*)",
+      "Bash(npm install:*)",
+      "Bash(node -e \"require\\('lodash/get.js'\\)\")",
+      "Bash(ls node_modules/lodash/get*)"
+    ]
+  }
+}
