@@ -14,8 +14,20 @@ export function getDb(): Database.Database {
     db.pragma("journal_mode = WAL");
     db.pragma("foreign_keys = ON");
     initTables(db);
+    runMigrations(db);
   }
   return db;
+}
+
+function runMigrations(db: Database.Database) {
+  // Add columns introduced after initial schema
+  const migrations = [
+    "ALTER TABLE accounts ADD COLUMN openclaw_url TEXT",
+    "ALTER TABLE accounts ADD COLUMN openclaw_api_key TEXT",
+  ];
+  for (const m of migrations) {
+    try { db.exec(m); } catch { /* column already exists */ }
+  }
 }
 
 function initTables(db: Database.Database) {
@@ -135,8 +147,8 @@ function initTables(db: Database.Database) {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       email TEXT,
-      avatar_color TEXT DEFAULT '#6366f1',
-      bio TEXT,
+      openclaw_url TEXT,
+      openclaw_api_key TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -444,14 +456,21 @@ export interface Account {
   id: string;
   name: string;
   email?: string;
-  avatar_color?: string;
+  openclaw_url?: string;
+  openclaw_api_key?: string;
   created_at: string;
 }
 
-export function createAccount(id: string, name: string, email?: string) {
+export function createAccount(id: string, name: string) {
   getDb()
-    .prepare("INSERT INTO accounts (id, name, email) VALUES (?, ?, ?)")
-    .run(id, name, email || null);
+    .prepare("INSERT INTO accounts (id, name) VALUES (?, ?)")
+    .run(id, name);
+}
+
+export function setAccountOpenClaw(id: string, url: string, api_key: string) {
+  getDb()
+    .prepare("UPDATE accounts SET openclaw_url = ?, openclaw_api_key = ? WHERE id = ?")
+    .run(url || null, api_key || null, id);
 }
 
 export function getAccounts(): Account[] {
@@ -462,8 +481,8 @@ export function getAccount(id: string): Account | undefined {
   return getDb().prepare("SELECT * FROM accounts WHERE id = ?").get(id) as Account | undefined;
 }
 
-export function updateAccount(id: string, name: string, email?: string) {
-  getDb().prepare("UPDATE accounts SET name = ?, email = ? WHERE id = ?").run(name, email || null, id);
+export function updateAccount(id: string, name: string) {
+  getDb().prepare("UPDATE accounts SET name = ? WHERE id = ?").run(name, id);
 }
 
 export function deleteAccount(id: string) {
